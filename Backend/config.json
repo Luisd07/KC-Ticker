@@ -1,0 +1,18 @@
+{
+	"orbits": {
+		"event_id": "123456",
+		"api_key": "YOUR_ORBITS_KEY"
+	},
+	"ftp": {
+		"host": "ftp.example.com",
+		"username": "user",
+		"password": "pass",
+		"directory": "/team_data",
+		"file_pattern": "team_*.csv"
+	},
+	"merge_keys": {
+		"orbits_key": "driver_name",
+		"ftp_key": "Driver"
+	},
+	"poll_interval": 5
+}
