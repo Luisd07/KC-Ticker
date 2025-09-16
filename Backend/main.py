@@ -73,113 +73,12 @@ def fetchOrbits():
         print(f"Orbits fetch error: {e}")
         return pd.DataFrame()
 
-def fetchFTP():
 
-    # Fetch driver CSV files and team logos from FTP, parses through them, and return combined CSV data as a pandas DataFrame.
+if __name__ == "__main__":
+    print("Fetching Orbits data...")
+    df = fetch_orbits()
 
-    combined_df = pd.DataFrame
-
-    host = CONFIG['ftp'].get('host')
-    username = CONFIG['ftp'].get('username')
-    password = CONFIG['ftp'].get('password')
-    directory = CONFIG['ftp'].get('directory', '/')
-    file_pattern = CONFIG['ftp'].get('file_pattern', '*.csv')
-
-    if not host or not username or not password:
-        print("FTP fetch skipped: missing host, username, or password")
-        return combined_df
-
-    try:
-        with FTP(host) as ftp:
-            ftp.login(user=username, passwd=password)
-            ftp.cwd(directory)
-            files = ftp.nlst()
-
-            # ---------- Parse CSV files in memory ----------
-            csv_files = [f for f in files if f.endswith(".csv") and glob.fnmatch.fnmatch(f, file_pattern)]
-            for csv_file in csv_files:
-                r = io.BytesIO()
-                ftp.retrbinary(f"RETR {csv_file}", r.write)
-                r.seek(0)  # move to start of the file
-                df = pd.read_csv(r)
-                combined_df = pd.concat([combined_df, df], ignore_index=True)
-
-            # ---------- List logos (no download) ----------
-            logo_files = [f for f in files if f.lower().endswith((".png", ".jpg", ".jpeg"))]
-            if logo_files:
-                print(f"Found logos: {logo_files}")
-
-        return combined_df
-
-    except Exception as e:
-        print(f"FTP error: {e}")
-        return combined_df
-
-
-def mergeData():
-
-    # Fetch Orbits data and FTP CSVs in memory, normalize driver names, merge, and update global merged_data.
-
-    global merged_data
-
-    orbits_df = fetchOrbits()
-    if orbits_df.empty:
-        mergeData = pd.DataFrame()
-        return
-
-    ftp_df = fetchFTP()
-    if ftp_df.empty:
-        mergeData = pd.DataFrame()
-        return
-
-    # Get merge keys from config
-    orbits_key = CONFIG['merge_keys'].get('orbits_key', 'driver_name')
-    ftp_key = CONFIG['merge_keys'].get('ftp_key', 'Driver')
-
-    # Normalize driver names
-    orbits_df['driver_clean'] = orbits_df[orbits_key].astype(str).str.lower().str.replace(" ", "")
-    ftp_df['driver_clean'] = ftp_df[ftp_key].astype(str).str.lower().str.replace(" ", "")
-
-    # Merge
-    merged_data = pd.merge(orbits_df, ftp_df, on='driver_clean', how='left')
-
-# ---------- LIVE POLLING ----------
-def startPolling():
-    # Start background thread that updates merged_data every poll_interval seconds.
-
-    def pollingLoop():
-        while True:
-            mergeData()
-            time.sleep(CONFIG.get('poll_interval', 5))
-
-    thread = threading.Thread(target=pollingLoop, daemon=True)
-    thread.start()
-
-# Start polling when backend runs
-startPolling()
-
-
-# ---------- API ENDPOINTS ----------
-@app.get("/live-data")
-
-
-def getLiveData():
-    # Return latest merged data as JSON.
-    return merged_data.to_dict(orient="records")
-
-class ConfigUpdate(BaseModel):
-    orbits: dict
-    ftp: dict
-    merge_keys: dict
-    poll_interval: int = 5
-
-@app.get("/config")
-def get_config():
-    return CONFIG
-
-@app.post("/config")
-def update_config(config_update: ConfigUpdate):
-    global CONFIG
-    CONFIG = config_update.dict()
-    saveConfig()
-    return {"status": "success", "message": "Configuration updated"}
+    if df.empty:
+        print("No data found.")
+    else:
+        print(df.head())   # print first few rows so you can see the structure
